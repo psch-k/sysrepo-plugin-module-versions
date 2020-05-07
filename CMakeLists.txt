@@ -10,8 +10,31 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra")
 #set(CMAKE_C_FLAGS_RELEASE "-O2 -DNDEBUG")
 #set(CMAKE_C_FLAGS_DEBUG   "-g -O0 -DDEBUG")
 
-set(SOURCES
-	src/module-versions-plugin.c)
+# Determine DEIP version to simulate
+if (NOT YANG_SET)
+    set(YANG_SET "ipsolutionref_1_6_0")
+endif()
+string(TOLOWER "${YANG_SET}" YANG_SET_LOWER)
+
+#set(VALID_YANG_SET_LIST ipsolutionref_1_6_0 ipsolutionref_2_1_0)
+#
+#if (NOT YANG_SET_LOWER IN_LIST VALID_YANG_SET_LIST)
+#    message(FATAL_ERROR "Illegal value of YANG_SET.")
+#endif()
+
+if (NOT ((YANG_SET_LOWER STREQUAL "ipsolutionref_1_6_0") OR
+         (YANG_SET_LOWER STREQUAL "ipsolutionref_2_1_0")))
+    message(FATAL_ERROR "Illegal value of YANG_SET.")
+endif()
+
+
+if (YANG_SET_LOWER STREQUAL ipsolutionref_1_6_0)
+    set(SOURCES
+	src/module-versions-plugin_1-6-0.c)
+else()
+    set(SOURCES
+	src/module-versions-plugin_2-1-0.c)
+endif()
 
 if(CMAKE_BUILD_TYPE MATCHES "debug")
   add_executable(${CMAKE_PROJECT_NAME} ${SOURCES})
@@ -56,21 +79,21 @@ if (NOT SYSREPOCTL_ROOT_PERMS)
 endif()
 
 ## get sysrepo plugins directory
-#if (NOT SR_PLUGINS_DIR)
-#    if (PKG_CONFIG_FOUND)
-#        execute_process(COMMAND ${PKG_CONFIG_EXECUTABLE} "--variable=SR_PLUGINS_DIR" "libsysrepo" OUTPUT_VARIABLE SR_PLUGINS_DIR)
-#        string(STRIP ${SR_PLUGINS_DIR} SR_PLUGINS_DIR)
-#    endif()
-#endif()
-#if (NOT SR_PLUGINS_DIR)
-#    message(FATAL_ERROR "Cannot get sysrepo plugins directory due to missing pkg-config, set SR_PLUGINS_DIR manually.")
-#endif()
+if (NOT SRPD_PLUGINS_PATH)
+    if (PKG_CONFIG_FOUND)
+        execute_process(COMMAND ${PKG_CONFIG_EXECUTABLE} "--variable=SRPD_PLUGINS_PATH" "sysrepo" OUTPUT_VARIABLE SRPD_PLUGINS_PATH)
+        string(STRIP ${SRPD_PLUGINS_PATH} SRPD_PLUGINS_PATH)
+    endif()
+endif()
+if (NOT SRPD_PLUGINS_PATH)
+    message(FATAL_ERROR "Cannot get sysrepo plugins directory due to missing pkg-config, set SRPD_PLUGINS_PATH manually.")
+endif()
 
 option(MODEL_INSTALL "Enable yang model installation" ON)
 if (MODEL_INSTALL)
     install(CODE "
         message(STATUS \"Installing sysrepo modules...\")
-        execute_process(COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/scripts/model-install.sh ${SYSREPOCTL_EXECUTABLE} \"${SYSREPOCTL_ROOT_PERMS}\" RESULT_VARIABLE RET ERROR_VARIABLE ERR)
+        execute_process(COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/scripts/model-install.sh ${SYSREPOCTL_EXECUTABLE} \"${SYSREPOCTL_ROOT_PERMS}\" ${YANG_SET_LOWER} RESULT_VARIABLE RET ERROR_VARIABLE ERR)
         if(\${RET})
              message(FATAL_ERROR \"sysrepoctl failed: \${ERR}\")
         endif()
